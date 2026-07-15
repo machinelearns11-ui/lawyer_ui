@@ -25,8 +25,9 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from flask import Flask, render_template, jsonify, send_file
+from flask_cors import CORS
 
-CORS(app19)
+CORS(app)
 
 
 # --- GOOGLE DRIVE API INITIALIZATION ---
