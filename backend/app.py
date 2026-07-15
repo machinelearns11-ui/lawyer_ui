@@ -379,7 +379,7 @@ def extract_kyc():
 def intercept_unauthenticated_sessions():
     allowed_routes = ['index', 'register', 'serve_css']
     if request.endpoint not in allowed_routes and 'user' not in session:
-        return redirect(url_for('index'))
+        return redirect(url_for('login'))
 
 
 # --- USER AUTHENTICATION CONTROLLERS ---
@@ -398,7 +398,7 @@ def login():
             if user_data.get('password') == password:
                 if user_data.get('account_status', 'approved') != 'approved':
                     flash("Access Denied: Your account is pending Master Admin approval.", "error")
-                    return redirect(url_for('index'))
+                    return redirect(url_for('login'))
                 
                 session['user'] = username
                 session['role'] = user_data.get('role', 'viewer')
@@ -442,7 +442,7 @@ def register():
             'created_at': firestore.SERVER_TIMESTAMP
         })
         
-        return redirect(url_for('index'))
+        return redirect(url_for('login'))
     return render_template('register.html')
 
 
@@ -450,7 +450,7 @@ def register():
 def logout():
     session.clear()
     flash("Session terminated securely.", "success")
-    return redirect(url_for('index'))
+    return redirect(url_for('login'))
 
 
 # --- ADMINISTRATIVE USER CONTROLLERS ---
