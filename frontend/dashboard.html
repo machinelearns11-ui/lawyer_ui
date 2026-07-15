@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LegalMatrix | Advanced Core Ledger</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .dashboard-layout { display: flex; min-height: 100vh; background: #0f172a; color: #cbd5e1; font-family: system-ui, sans-serif; }
+        .sidebar { width: 280px; background: #111827; border-right: 1px solid #1e293b; padding: 20px; display: flex; flex-direction: column; }
+        .brand h2 { color: #f8fafc; margin: 0; font-size: 20px; display: flex; align-items: center; gap: 8px; }
+        .user-badge { background: #1e293b; color: #fbbf24; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+        .user-profile-section { margin: 20px 0; font-size: 13px; color: #94a3b8; border-bottom: 1px solid #1e293b; padding-bottom: 15px; }
+        .nav-menu { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+        .nav-item { color: #94a3b8; text-decoration: none; padding: 10px 14px; border-radius: 6px; font-size: 14px; display: flex; align-items: center; gap: 10px; transition: all 0.2s; }
+        .nav-item:hover, .nav-item.active { background: #1f2937; color: #f8fafc; }
+        .nav-item.active { border-left: 3px solid #fbbf24; }
+        .logout-btn { margin-top: auto; color: #ef4444; }
+        
+        /* Update your existing .main-content rule to include min-width */
+			.main-content { 
+				flex: 1; 
+				padding: 30px; 
+				overflow-y: auto; 
+				min-width: 0; /* Prevents long items from ballooning the container horizontally */
+			}
+
+			/* Add this new helper class for the sub-ledgers grid matrix */
+			.ledger-storage-grid {
+				display: grid; 
+				grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
+				gap: 20px; 
+				margin-top: 30px;
+			}
+
+			/* Add these media queries at the bottom of your style block to stack columns on smaller viewports */
+			@media (max-width: 1200px) {
+				.dashboard-layout { 
+					flex-direction: column; 
+				}
+				.sidebar { 
+					width: 100%; 
+					border-right: none; 
+					border-bottom: 1px solid #1e293b; 
+					box-sizing: border-box; 
+				}
+				.grid-split { 
+					grid-template-columns: 1fr; /* Stacks case tracker list above case metrics details */
+				}
+			}
+        .grid-split { display: grid; grid-template-columns: 320px 1fr; gap: 25px; }
+        .record-list { background: #111827; border: 1px solid #1e293b; border-radius: 8px; max-height: 75vh; overflow-y: auto; }
+        .list-item { padding: 15px; border-bottom: 1px solid #1e293b; cursor: pointer; transition: background 0.2s; text-decoration: none; display: block; }
+        .list-item:hover, .list-item.selected { background: #1f2937; }
+        
+        .panel-matrix { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; margin-top: 20px; }
+        .panel-card { background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+        .panel-card h3 { margin: 0 0 5px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: #fbbf24; border-bottom: 1px solid #1e293b; padding-bottom: 8px; }
+        
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group.full-width { grid-column: span 2; }
+        label { font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: bold; }
+        input, select, textarea { background: #0f172a; border: 1px solid #334155; color: #f8fafc; padding: 8px 12px; border-radius: 4px; font-size: 13px; }
+        input:focus, select:focus, textarea:focus { border-color: #fbbf24; outline: none; }
+        
+        .alert-box { padding: 12px; border-radius: 6px; font-size: 13px; margin-bottom: 20px; }
+        .alert-success { background: rgba(52, 211, 153, 0.1); border: 1px solid #34d399; color: #34d399; }
+        .alert-error { background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #fca5a5; }
+        
+        .ai-badge { background: linear-gradient(135deg, #fbbf24, #d97706); color: #0f172a; font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
+        .btn-action { background: #fbbf24; color: #0f172a; border: none; padding: 10px 16px; font-weight: bold; border-radius: 6px; cursor: pointer; text-align: center; text-decoration: none; display: inline-block; }
+        .btn-action:hover { background: #fde047; }
+        .btn-secondary { background: #1e293b; color: #cbd5e1; border: 1px solid #334155; padding: 6px 10px; font-size: 11px; }
+        .btn-secondary:hover { background: #334155; }
+        .dynamic-wrapper { border: 1px dashed #334155; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-layout">
+        <aside class="sidebar">
+            <div class="brand">
+                <h2>⚖️ LegalMatrix <span class="user-badge">{{ role | upper }}</span></h2>
+            </div>
+            <div class="user-profile-section">
+                <p>Operator: <strong>{{ username }}</strong></p>
+            </div>
+            <nav class="nav-menu">
+                <a href="/dashboard?view=search" class="nav-item {% if current_view == 'search' %}active{% endif %}">🔍 Find & Mutate Records</a>
+                <a href="/dashboard?view=alerts" class="nav-item {% if current_view == 'alerts' %}active{% endif %}">🔔 Hearing Alerts Console</a>
+                {% if role in ['admin', 'editor'] %}
+                <a href="/dashboard?view=add" class="nav-item {% if current_view == 'add' %}active{% endif %}">➕ Provision Case Entry</a>
+                {% endif %}
+                {% if role == 'admin' %}
+                <a href="/dashboard?view=users" class="nav-item {% if current_view == 'users' %}active{% endif %}">🔐 Manage System Access</a>
+                {% endif %}
+                <a href="/logout" class="nav-item logout-btn">🚪 Terminate Session</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, msg in messages %}
+                        <div class="alert-box alert-{{ category }}">{{ msg }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- ==================== VIEW: SEARCH / MUTATE ==================== -->
+            {% if current_view == 'search' %}
+            <div class="grid-split">
+                <div class="record-list">
+                    <div style="padding: 15px; border-bottom: 1px solid #1e293b; background: #1f2937;">
+                        <span style="font-size: 11px; text-transform: uppercase; font-weight: bold; color: #94a3b8;">Active Core Indexes</span>
+                    </div>
+                    {% for c in all_cases %}
+                    <a href="/dashboard?view=search&case_id={{ c.case_number }}" class="list-item {% if selected_case_id == c.case_number %}selected{% endif %}">
+                        <div style="font-weight: bold; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                            <span style="width:10px; height:10px; background:{{ c.case_details.case_priority_flagging_color or '#fbbf24' }}; border-radius:50%;"></span>
+                            {{ c.client_personal_details.client_name }}
+                        </div>
+                        <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Ref ID: {{ c.case_number }} | {{ c.case_details.stage_of_matter }}</div>
+                    </a>
+                    {% endfor %}
+                </div>
+
+                <div>
+                    {% if selected_case %}
+                    <div style="background: #111827; border: 1px solid #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="font-size: 11px; text-transform: uppercase; color: #fbbf24; font-weight: bold;">Selected Ledger Target</span>
+                            <h2 style="margin: 5px 0; color: #f8fafc;">{{ selected_case.case_details.case_name }}</h2>
+                            <p style="margin: 0; font-size: 13px; color: #94a3b8;">Status Track: <span style="color: #34d399; font-weight: bold;">{{ selected_case.case_details.status_of_case | upper }}</span></p>
+                        </div>
+                        <div>
+                            <a href="/case-research/{{ selected_case.case_number }}" class="btn-action" style="background: linear-gradient(135deg, #a855f7, #7c3aed); color: white;">
+                                🔬 Launch AI Research Workspace ↗
+                            </a>
+                        </div>
+                    </div>
+
+                    <form method="POST" action="/update_case/{{ selected_case.case_number }}">
+                        <div class="panel-matrix">
+                            <!-- PANEL 1: Client Personal Details -->
+                            <div class="panel-card">
+                                <h3>👤 1. Client Identity Records</h3>
+                                <div class="form-group"><label>Client Full Name</label><input type="text" name="client_name" value="{{ selected_case.client_personal_details.client_name }}"></div>
+                                <div class="form-group"><label>Father's Name</label><input type="text" name="fathers_name" value="{{ selected_case.client_personal_details.fathers_name }}"></div>
+                                <div class="form-group"><label>Full Address</label><textarea name="client_address" rows="2">{{ selected_case.client_personal_details.address }}</textarea></div>
+                                <div class="form-row">
+                                    <div class="form-group"><label>Mobile No.</label><input type="text" name="client_mobile" value="{{ selected_case.client_personal_details.mobile_no }}"></div>
+                                    <div class="form-group"><label>Email Endpoint</label><input type="text" name="client_email" value="{{ selected_case.client_personal_details.email_no }}"></div>
+                                </div>
+                                <h4 style="color:#64748b; font-size:11px; margin-top:5px; border-bottom:1px dashed #334155;">Emergency Contact Matrix</h4>
+                                <div class="form-row">
+                                    <div class="form-group"><label>Contact Name</label><input type="text" name="emergency_name" value="{{ selected_case.client_personal_details.emergency_contact.name }}"></div>
+                                    <div class="form-group"><label>Relation</label><input type="text" name="emergency_relation" value="{{ selected_case.client_personal_details.emergency_contact.relation }}"></div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group"><label>Mobile</label><input type="text" name="emergency_mobile" value="{{ selected_case.client_personal_details.emergency_contact.mobile_no }}"></div>
+                                    <div class="form-group"><label>Email</label><input type="text" name="emergency_email" value="{{ selected_case.client_personal_details.emergency_contact.email }}"></div>
+                                </div>
+                            </div>
+
+                            <!-- PANEL 2: Case Parameters -->
+                            <div class="panel-card">
+                                <h3>⚖️ 2. Core Case Parameters</h3>
+                                <div class="form-group"><label>Case Track Name</label><input type="text" name="case_name" value="{{ selected_case.case_details.case_name }}"></div>
+                                <div class="form-row">
+                                    <div class="form-group"><label>Court Name</label><input type="text" name="court_name" value="{{ selected_case.case_details.court_name }}"></div>
+                                    <div class="form-group"><label>Judge Name</label><input type="text" name="judge_name" value="{{ selected_case.case_details.judge_name }}"></div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group"><label>Court No.</label><input type="text" name="court_no" value="{{ selected_case.case_details.court_no }}"></div>
+                                    <div class="form-group"><label>Item Number</label><input type="text" name="item_no" value="{{ selected_case.case_details.item_no }}"></div>
+                                </div>
+                                <div class="form-group"><label>Cause List (Link)</label><input type="text" name="cause_list_link" value="{{ selected_case.case_details.cause_list_link }}"></div>
+                                <div class="form-group"><label>VC Remote Link</label><input type="text" name="vc_link" value="{{ selected_case.case_details.vc_link }}"></div>
+                                <div class="form-group"><label>Order Sheets (Last Link)</label><input type="text" name="order_sheets_link" value="{{ selected_case.case_details.order_sheets_link }}"></div>
+                                <div class="form-row">
+                                    <div class="form-group"><label>Last Hearing Date</label><input type="date" name="last_date_of_hearing" value="{{ selected_case.case_details.last_date_of_hearing }}"></div>
+                                    <div class="form-group"><label>Next Hearing Date</label><input type="date" name="next_date_of_hearing" value="{{ selected_case.case_details.next_date_of_hearing }}"></div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group"><label>Stage of Matter</label><input type="text" name="stage_of_matter" value="{{ selected_case.case_details.stage_of_matter }}"></div>
+                                    <div class="form-group">
+                                        <label>Priority Flag Color</label>
+                                        <select name="case_priority_flagging_color">
+                                            <option value="#ef4444" {% if selected_case.case_details.case_priority_flagging_color == '#ef4444' %}selected{% endif %}>Critical Red</option>
+                                            <option value="#fbbf24" {% if selected_case.case_details.case_priority_flagging_color == '#fbbf24' %}selected{% endif %}>Medium Amber</option>
+                                            <option value="#3b82f6" {% if selected_case.case_details.case_priority_flagging_color == '#3b82f6' %}selected{% endif %}>Standard Blue</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Status of Case</label>
+                                    <select name="status_of_case">
+                                        <option value="pending" {% if selected_case.case_details.status_of_case == 'pending' %}selected{% endif %}>Pending</option>
+                                        <option value="dismissed" {% if selected_case.case_details.status_of_case == 'dismissed' %}selected{% endif %}>Dismissed</option>
+                                        <option value="disposed" {% if selected_case.case_details.status_of_case == 'disposed' %}selected{% endif %}>Disposed</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- PANEL 3: Dynamic Adversaries & Counsel Arrays -->
+                            <!-- PANEL 3: Dynamic Adversaries & Counsel Arrays (EDITABLE MATRIX) -->
+								<!-- PANEL 3: Dynamic Adversaries & Counsel Arrays (MATCHES CREATION SCHEMA) -->
+								<div class="panel-card">
+									<h3>👥 3 & 4. Opposing Adversaries & Counsel</h3>
+									
+									<!-- Dynamic Opposing Parties Wrapper -->
+									<div id="edit_opposing_parties_container">
+										<label style="color:#fbbf24; font-size:11px; display:block; margin-bottom:5px;">Opposite Parties Array</label>
+										{% for party in selected_case.opposite_parties %}
+										<div class="dynamic-wrapper">
+											<div class="form-group"><label>Opposite Party Name *</label><input type="text" name="opposing_party_name[]" value="{{ party.name if party.name is defined else party }}" required></div>
+											<div class="form-group"><label>Address</label><input type="text" name="opposing_party_address[]" value="{{ party.address if party.address is defined else '' }}"></div>
+											<div class="form-row">
+												<div class="form-group"><label>Mobile</label><input type="text" name="opposing_party_mobile[]" value="{{ party.mobile_no if party.mobile_no is defined else '' }}"></div>
+												<div class="form-group"><label>Email</label><input type="text" name="opposing_party_email[]" value="{{ party.email if party.email is defined else '' }}"></div>
+											</div>
+										</div>
+										{% else %}
+										<!-- Fallback baseline matrix if array initialization is vacant -->
+										<div class="dynamic-wrapper">
+											<div class="form-group"><label>Opposite Party Name *</label><input type="text" name="opposing_party_name[]"></div>
+											<div class="form-group"><label>Address</label><input type="text" name="opposing_party_address[]"></div>
+											<div class="form-row">
+												<div class="form-group"><label>Mobile</label><input type="text" name="opposing_party_mobile[]"></div>
+												<div class="form-group"><label>Email</label><input type="text" name="opposing_party_email[]"></div>
+											</div>
+										</div>
+										{% endfor %}
+									</div>
+									<button type="button" onclick="appendEditOpposingPartyBlock()" class="btn-action btn-secondary" style="margin-bottom:15px; width:100%;">➕ Include Secondary Adversary</button>
+
+									<!-- Dynamic Opposing Counsel Wrapper -->
+									<div id="edit_opposing_counsels_container">
+										<label style="color:#fbbf24; font-size:11px; display:block; margin-bottom:5px;">Opposite Counsels Array</label>
+										{% for counsel in selected_case.opposite_counsels %}
+										<div class="dynamic-wrapper">
+											<div class="form-group"><label>Counsel Advocate Name</label><input type="text" name="opposing_counsel_name[]" value="{{ counsel.name if counsel.name is defined else counsel }}"></div>
+											<div class="form-group"><label>Address</label><input type="text" name="opposing_counsel_address[]" value="{{ counsel.address if counsel.address is defined else '' }}"></div>
+											<div class="form-row">
+												<div class="form-group"><label>Mobile</label><input type="text" name="opposing_counsel_mobile[]" value="{{ counsel.mobile_no if counsel.mobile_no is defined else '' }}"></div>
+												<div class="form-group"><label>Email</label><input type="text" name="opposing_counsel_email[]" value="{{ counsel.email if counsel.email is defined else '' }}"></div>
+											</div>
+											<div class="form-group"><label>Vakalatnama Repository Link</label><input type="text" name="opposing_counsel_vakalatnama[]" value="{{ counsel.vakalatnama_link if counsel.vakalatnama_link is defined else '' }}" placeholder="https://..."></div>
+										</div>
+										{% else %}
+										<!-- Fallback baseline matrix if array initialization is vacant -->
+										<div class="dynamic-wrapper">
+											<div class="form-group"><label>Counsel Advocate Name</label><input type="text" name="opposing_counsel_name[]"></div>
+											<div class="form-group"><label>Address</label><input type="text" name="opposing_counsel_address[]"></div>
+											<div class="form-row">
+												<div class="form-group"><label>Mobile</label><input type="text" name="opposing_counsel_mobile[]"></div>
+												<div class="form-group"><label>Email</label><input type="text" name="opposing_counsel_email[]"></div>
+											</div>
+											<div class="form-group"><label>Vakalatnama Repository Link</label><input type="text" name="opposing_counsel_vakalatnama[]" placeholder="https://..."></div>
+										</div>
+										{% endfor %}
+									</div>
+									<button type="button" onclick="appendEditOpposingCounselBlock()" class="btn-action btn-secondary" style="width:100%;">➕ Include Secondary Counsel</button>
+								</div>
+                            <!-- PANEL 4: Dynamic Jurisdiction Fields -->
+                            <div class="panel-card" style="border-color:#38bdf8;">
+                                <h3>⚖️ 7 & 8. Target Jurisdictional Engine</h3>
+                                <div style="padding:10px; background:#1e293b; border-radius:6px; margin-bottom:10px;">
+                                    <span class="user-badge" style="color:#38bdf8; background:#0f172a;">ACTIVE TRACK: {{ selected_case.case_classification | upper }}</span>
+                                </div>
+                                
+                                {% if selected_case.case_classification == 'criminal' %}
+                                <div id="criminal_block">
+                                    <div class="form-row">
+                                        <div class="form-group"><label>FIR Number</label><input type="text" name="fir_number" value="{{ selected_case.criminal_specific.fir_number }}"></div>
+                                        <div class="form-group"><label>Police Station</label><input type="text" name="police_station" value="{{ selected_case.criminal_specific.police_station }}"></div>
+                                    </div>
+                                    <div class="form-group"><label>Sections of Law (u/s)</label><input type="text" name="sections_of_law" value="{{ selected_case.criminal_specific.sections_of_law }}"></div>
+                                    <div class="form-group"><label>Remarks & Notes</label><textarea name="remarks_additional_info" rows="3">{{ selected_case.criminal_specific.remarks_additional_info }}</textarea></div>
+                                </div>
+                                {% else %}
+                                <div id="civil_block">
+                                    <div class="form-group"><label>Nature of Claim</label><input type="text" name="nature_of_claim" value="{{ selected_case.civil_specific.nature_of_claim }}"></div>
+                                    <div class="form-group"><label>Suit Type</label><input type="text" name="suit_type" value="{{ selected_case.civil_specific.suit_type }}"></div>
+                                    <div class="form-group"><label>Quantum (Valuation)</label><input type="number" step="any" name="quantum" value="{{ selected_case.civil_specific.quantum }}"></div>
+                                    <div class="form-group"><label>Reliefs Sought</label><textarea name="reliefs_sought" placeholder="Comma separated values">{{ selected_case.civil_specific.reliefs_sought_multiple | join(',') }}</textarea></div>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- PANEL 5: Adobe System Features -->
+                            <div class="panel-card">
+                                <h3>⚙️ 5 & 6. Storage Node & Adobe Extensions</h3>
+                                <div style="font-size:12px; margin-bottom:10px; padding:8px; background:#0f172a; border-radius:4px; font-family:monospace;">
+                                    📁 Storage Path File Ref: /dockets/{{ selected_case.local_storage_directory.folder_saved_by_file_no if selected_case.local_storage_directory else selected_case.case_number }}
+                                </div>
+                                <label style="font-size:11px; color:#64748b; margin-bottom:5px; display:block;">Adobe Suite Processing Engine</label>
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                    <label style="font-size:12px;"><input type="checkbox" disabled {% if selected_case.adobe_features_status.scan_completed %}checked{% endif %}> Adobe Scan</label>
+                                    <label style="font-size:12px;"><input type="checkbox" disabled {% if selected_case.adobe_features_status.pdf_converted %}checked{% endif %}> PDF Converter</label>
+                                    <label style="font-size:12px;"><input type="checkbox" disabled {% if selected_case.adobe_features_status.ocr_processed %}checked{% endif %}> OCR Complete</label>
+                                    <label style="font-size:12px;"><input type="checkbox" disabled {% if selected_case.adobe_features_status.bookmarked %}checked{% endif %}> Bookmarked</label>
+                                    <label style="font-size:12px;"><input type="checkbox" disabled {% if selected_case.adobe_features_status.esign_executed %}checked{% endif %}> E-Sign Status</label>
+                                    <label style="font-size:12px;"><input type="checkbox" disabled {% if selected_case.adobe_features_status.translator_used %}checked{% endif %}> Translator</label>
+                                </div>
+                            </div>
+
+                            <!-- PANEL 6: Financial Ledgers (Only Top-Level Variables) -->
+                            <div class="panel-card">
+                                <h3>💰 9. Financial Ledger Setup</h3>
+                                <div class="form-row">
+                                    <div class="form-group"><label>Agreed Fee Value</label><input type="number" step="any" name="fees_amount" value="{{ selected_case.financials.fees_amount }}"></div>
+                                    <div class="form-group"><label>Generation Mode</label><input type="text" readonly value="{{ selected_case.financials.client_details_mode }}"></div>
+                                </div>
+                                <div class="form-group"><label>Fee Particulars Context</label><input type="text" name="financial_particulars" value="{{ selected_case.financials.particulars }}"></div>
+											<button type="button" onclick="generateAndEmailInvoice('{{ selected_case.case_number }}')" class="btn-action" style="background: linear-gradient(135deg, #10b981, #059669); color: white; width: 100%; margin-top: 15px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+													📄 Generate & Email Invoice
+												</button>
+																			<!-- 📥 Download PDF Invoice (NEW) -->
+										<a href="/download_invoice/{{ selected_case.case_number }}" class="btn-action" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; width: 100%; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; box-sizing: border-box;">
+											📥 Download Invoice PDF
+										</a>
+                            </div>
+                        </div>
+
+                        {% if role in ['admin', 'editor'] %}
+                        <div style="margin-top: 25px; display:flex; gap:15px; justify-content: flex-end;">
+                            <button type="submit" class="btn-action">💾 Commit Matrix Modifications</button>
+                        </div>
+                        {% endif %}
+                    </form>
+
+                    <!-- ==================== EXTERNAL LEDGERS & STORAGE ==================== -->
+                    <!-- ==================== EXTERNAL LEDGERS & STORAGE ==================== -->
+							<div class="ledger-storage-grid">	
+                        
+                        <!-- EXPENSE LEDGER MANAGER -->
+                        <div style="background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 20px;">
+                            <h3 style="margin:0 0 15px 0; color:#fbbf24; font-size:14px; text-transform:uppercase;">💸 Expense Tracker</h3>
+                            
+                            <!-- 1. TOTAL CALCULATION BLOCK -->
+                            {% set total_expenses = namespace(value=0.0) %}
+                            {% for exp in selected_case.expense_ledger %}
+                                {% set total_expenses.value = total_expenses.value + (exp.amount | float) %}
+                            {% endfor %}
+
+                            <div style="background: #1e293b; padding: 10px; border-radius: 6px; margin-bottom: 15px; border-left: 4px solid #ef4444;">
+                                <span style="font-size: 11px; color: #94a3b8; display: block; text-transform: uppercase;">Total Outlays</span>
+                                <span style="font-size: 20px; font-weight: bold; color: #f87171;">₹{{ "{:,.2f}".format(total_expenses.value) }}</span>
+                            </div>
+
+                            <!-- 2. EXPENSES LIST -->
+                            <div style="background:#0f172a; padding:10px; border-radius:6px; border:1px solid #1e293b; max-height: 120px; overflow-y: auto; margin-bottom:15px;">
+                                {% if selected_case.expense_ledger and selected_case.expense_ledger|length > 0 %}
+                                    {% for exp in selected_case.expense_ledger %}
+                                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1e293b; padding:6px 0; font-size:12px;">
+                                        <div>
+                                            <strong style="color: #e2e8f0; display:block;">{{ exp.particulars }}</strong>
+                                            <small style="color: #64748b;">{{ exp.date }}</small>
+                                        </div>
+                                        <span style="color:#ef4444; font-weight:600;">- ₹{{ "{:,.2f}".format(exp.amount | float) }}</span>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div style="font-size:11px; color:#64748b; text-align:center;">No expenses charged.</div>
+                                {% endif %}
+                            </div>
+
+                            <!-- 3. ADD EXPENSE FORM (Safe outside the main form loop) -->
+                            {% if role != 'viewer' %}
+                            <form method="POST" action="/add_expense/{{ selected_case.case_number }}">
+                                <div class="form-group" style="margin-bottom: 10px;">
+                                    <input type="text" name="exp_particulars" required placeholder="Context (e.g. Notary)" style="width: 100%; box-sizing: border-box;">
+                                </div>
+                                
+                                <!-- Changed from side-by-side to full-width stacked fields for better visibility -->
+                                <div class="form-group" style="margin-bottom: 10px;">
+                                    <input type="date" name="exp_date" style="width: 100%; box-sizing: border-box;">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 15px;">
+                                    <input type="number" step="any" name="exp_amount" required placeholder="Amount (₹)" style="width: 100%; box-sizing: border-box; font-weight: bold; font-family: monospace;">
+                                </div>
+                                
+                                <button type="submit" class="btn-action" style="width: 100%; padding: 10px; font-size: 13px; border-radius: 4px;">➕ Log Expense</button>
+                            </form>
+                            {% endif %}
+                        </div>
+
+                        <!-- Upload Form -->
+                        <div style="background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 20px;">
+                            <h3 style="margin:0 0 15px 0; color:#fbbf24; font-size:14px; text-transform:uppercase;">📤 Upload to Cloud</h3>
+                            <form id="driveUploadForm" enctype="multipart/form-data">
+                                <input type="hidden" name="case_number" value="{{ selected_case.case_number }}">
+                                
+                                <div class="form-group" style="margin-bottom: 15px;">
+                                    <label>Document Category</label>
+                                    <select name="category" id="category" required>
+                                        <option value="pleadings">Pleadings (Case Files)</option>
+                                        <option value="drafts">Drafts (Word Files)</option>
+                                        <option value="research">Research (Judgments)</option>
+                                        <option value="order_sheets">Order Sheets</option>
+                                        <option value="notes">Notes & Graphics</option>
+                                        <option value="vakalatnama">Opposite Counsel Vakalatnama</option>
+                                        <option value="shared_documents">Client/Staff Shared Files</option>
+                                        <option value="proof_of_payment">Proof of Payment / Receipts</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group" style="margin-bottom: 15px;">
+                                    <label>Select File</label>
+                                    <input type="file" name="file" id="file" required style="padding: 5px;">
+                                </div>
+                                
+                                <button type="button" onclick="uploadToDrive()" class="btn-action" style="width: 100%;">Upload Document</button>
+                            </form>
+                        </div>
+
+                        <!-- Repository Display -->
+                        <div style="background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 20px;">
+                            <h3 style="margin:0 0 15px 0; color:#fbbf24; font-size:14px; text-transform:uppercase;">📁 Cloud Repository</h3>
+                            <div style="background:#0f172a; padding:15px; border-radius:6px; border:1px solid #1e293b; max-height: 250px; overflow-y: auto;">
+                                {% if selected_case.cloud_storage_links %}
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px;">
+                                    {% for category, links in selected_case.cloud_storage_links.items() %}
+                                        <div>
+                                            <strong style="color: #94a3b8; font-size: 11px; text-transform: uppercase; border-bottom: 1px solid #1e293b; padding-bottom: 4px; display: block; margin-bottom: 8px;">
+                                                {{ category.replace('_', ' ').title() }}
+                                            </strong>
+                                            {% if links %}
+                                                <ul style="margin: 0; padding-left: 15px; font-size: 12px;">
+                                                {% for link in links %}
+                                                    <li style="margin-bottom: 4px;">
+                                                        <a href="{{ link }}" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; text-decoration: none;">Document {{ loop.index }} ↗</a>
+                                                    </li>
+                                                {% endfor %}
+                                                </ul>
+                                            {% else %}
+                                                <div style="color: #64748b; font-size: 11px;">No files.</div>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <p style="color: #64748b; font-size: 13px; margin: 0;">No cloud storage data found for this case.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                    </div>
+                    <!-- ============================================================== -->
+
+                    <div style="background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 20px; margin-top: 30px;">
+                        <h3 style="margin:0 0 15px 0; color:#fbbf24; font-size:14px; text-transform:uppercase;">📝 Chronological Case Timeline Notes</h3>
+                        <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px;">
+                            {% for note in selected_case.notes %}
+                            <div style="background:#0f172a; padding:12px; border-radius:6px; border:1px solid #1e293b;">
+                                <div style="font-size:11px; color:#64748b; font-family:monospace; margin-bottom:4px;">[{{ note.timestamp }}]</div>
+                                <div style="font-size:13px; color:#cbd5e1;">{{ note.content }}</div>
+                            </div>
+                            {% else %}
+                            <div style="color:#64748b; font-size:13px; text-align:center; padding:15px;">No chronological entries logged.</div>
+                            {% endfor %}
+                        </div>
+                        {% if role != 'viewer' %}
+                        <form method="POST" action="/add_note" style="display:flex; gap:10px;">
+                            <input type="hidden" name="case_id" value="{{ selected_case.case_number }}">
+                            <input type="text" name="note_content" required placeholder="Append objective updates..." style="flex:1;">
+                            <button type="submit" class="btn-action" style="padding: 8px 15px;">Append Entry</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div style="text-align: center; padding: 100px 20px; color: #64748b;">
+                        <h3>Ledger Navigation Workspace Idle</h3>
+                        <p>Select a case parameter matrix overview to map mutations.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- ==================== VIEW: PROVISION / ADD ==================== -->
+            {% if current_view == 'add' %}
+            <div style="max-width: 1200px; margin: 0 auto; background: #111827; border: 1px solid #1e293b; padding: 30px; border-radius: 8px;">
+                <h2 style="color:#f8fafc; margin-top:0; margin-bottom:20px; border-bottom:1px solid #1e293b; padding-bottom:10px;">➕ Initialize New Case Block Entry</h2>
+                
+                <!-- INTEGRATED AI GEMINI KYC COMPLIANCE ENGINE GATEWAY -->
+                <div style="background: rgba(251, 191, 36, 0.02); padding: 20px; border: 1px dashed #fbbf24; border-radius: 6px; margin-bottom: 25px;">
+                    <h3 style="margin:0 0 10px 0; color:#fbbf24; font-size:14px;">🛡️ AI GEMINI DOCUMENT VALIDATION RUNTIME</h3>
+                    <div style="display:flex; gap:15px; align-items:center; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:250px;">
+                            <label style="color:#94a3b8; font-size:11px;">Mount Client Identity Image Element</label>
+                            <input type="file" id="kyc_upload_field" accept="image/*" style="padding:5px;">
+                        </div>
+                        <button type="button" onclick="executeAsynchronousKYC()" class="btn-action" style="padding:10px 20px;">⚡ Parse Document Assets</button>
+                        <span id="kyc_runtime_logs" style="font-size:12px; color:#94a3b8; font-family:monospace;">Engine Initialization: Idle</span>
+                    </div>
+                </div>
+
+                <form method="POST" action="/dashboard?view=add">
+                    <div class="form-row" style="margin-bottom:20px;">
+                        <div class="form-group">
+                            <label style="color:#fbbf24;">Unique File Identification Reference Number *</label>
+                            <input type="text" name="case_number" id="case_number_field" required placeholder="Ex: 105" style="font-size:15px; font-weight:bold; font-family:monospace;">
+                        </div>
+                        <div class="form-group">
+                            <label style="color:#fbbf24;">Structural Jurisdiction Engine Path Selection</label>
+                            <select name="case_classification" id="classification_selector" onchange="toggleFormJurisdiction(this.value)">
+                                <option value="civil">Civil Dispute Framework Matrix</option>
+                                <option value="criminal">Statutory Penal Criminal Framework</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="panel-matrix">
+                        <!-- Card 1: Client Core Details -->
+                        <div class="panel-card">
+                            <h3>👤 1. Client Identity Profiles</h3>
+                            <div class="form-group"><label>Client Full Name *</label><input type="text" name="client_name" id="extracted_name_target" required></div>
+                            <div class="form-group"><label>Father's Name</label><input type="text" name="fathers_name"></div>
+                            <div class="form-group"><label>Primary Address</label><textarea name="client_address" rows="2"></textarea></div>
+                            <div class="form-row">
+                                <div class="form-group"><label>Mobile No.</label><input type="text" name="client_mobile"></div>
+                                <div class="form-group"><label>Email Address</label><input type="email" name="client_email"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label>KYC ID Proof Type</label><input type="text" name="id_proof_type" value="PAN/Aadhaar"></div>
+                                <div class="form-group"><label>Document Reg ID</label><input type="text" name="id_proof_number" id="form_kyc_doc_num"></div>
+                            </div>
+                            <h4 style="color:#64748b; font-size:11px; margin:5px 0;">Emergency Boundary Contacts</h4>
+                            <div class="form-row">
+                                <div class="form-group"><label>Contact Name</label><input type="text" name="emergency_name"></div>
+                                <div class="form-group"><label>Relation</label><input type="text" name="emergency_relation"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label>Mobile</label><input type="text" name="emergency_mobile"></div>
+                                <div class="form-group"><label>Email</label><input type="text" name="emergency_email"></div>
+                            </div>
+                        </div>
+
+                        <!-- Card 2: Court Configuration Parameters -->
+                        <div class="panel-card">
+                            <h3>⚖️ 2. Court Parameters Ledger</h3>
+                            <div class="form-group"><label>Case Title / Name *</label><input type="text" name="case_name" required placeholder="Ex: John Doe vs State"></div>
+                            <div class="form-row">
+                                <div class="form-group"><label>Court Name *</label><input type="text" name="court_name" required></div>
+                                <div class="form-group"><label>Judge Name</label><input type="text" name="judge_name"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label>Court Number</label><input type="text" name="court_no"></div>
+                                <div class="form-group"><label>Cause List Link</label><input type="text" name="cause_list_link"></div>
+                            </div>
+                            <div class="form-group"><label>VC Link</label><input type="text" name="vc_link"></div>
+                            <div class="form-group"><label>Order Sheets Connector Link</label><input type="text" name="order_sheets_link"></div>
+                            <div class="form-row">
+                                <div class="form-group"><label>Last Date of Hearing</label><input type="date" name="last_date_of_hearing"></div>
+                                <div class="form-group"><label>Next Date of Hearing</label><input type="date" name="next_date_of_hearing"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label>Item No.</label><input type="text" name="item_no"></div>
+                                <div class="form-group"><label>Stage of Matter</label><input type="text" name="stage_of_matter" placeholder="Pleadings/Arguments"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Priority Flag Color</label>
+                                    <select name="case_priority_flagging_color">
+                                        <option value="#ef4444">Critical Red</option>
+                                        <option value="#fbbf24">Medium Amber</option>
+                                        <option value="#3b82f6">Standard Blue</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Initial Status</label>
+                                    <select name="status_of_case">
+                                        <option value="pending">Pending</option>
+                                        <option value="dismissed">Dismissed</option>
+                                        <option value="disposed">Disposed</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card 3: Dynamic Adversaries Arrays -->
+                        <div class="panel-card">
+                            <h3>👥 3 & 4. Multiple Adversary Array Provisioning</h3>
+                            
+                            <!-- Multiple Opposing Parties Wrapper -->
+                            <div id="opposing_parties_container">
+                                <label style="color:#fbbf24; font-size:11px;">Opposite Parties Array</label>
+                                <div class="dynamic-wrapper">
+                                    <div class="form-group"><label>Opposite Party Name *</label><input type="text" name="opposing_party_name[]" required></div>
+                                    <div class="form-group"><label>Address</label><input type="text" name="opposing_party_address[]"></div>
+                                    <div class="form-row">
+                                        <div class="form-group"><label>Mobile</label><input type="text" name="opposing_party_mobile[]"></div>
+                                        <div class="form-group"><label>Email</label><input type="text" name="opposing_party_email[]"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" onclick="appendOpposingPartyBlock()" class="btn-action btn-secondary" style="margin-bottom:15px;">➕ Include Secondary Adversary</button>
+
+                            <!-- Multiple Opposing Counsel Wrapper -->
+                            <div id="opposing_counsels_container">
+                                <label style="color:#fbbf24; font-size:11px;">Opposite Counsels Array</label>
+                                <div class="dynamic-wrapper">
+                                    <div class="form-group"><label>Counsel Advocate Name</label><input type="text" name="opposing_counsel_name[]"></div>
+                                    <div class="form-group"><label>Address</label><input type="text" name="opposing_counsel_address[]"></div>
+                                    <div class="form-row">
+                                        <div class="form-group"><label>Mobile</label><input type="text" name="opposing_counsel_mobile[]"></div>
+                                        <div class="form-group"><label>Email</label><input type="text" name="opposing_counsel_email[]"></div>
+                                    </div>
+                                    <div class="form-group"><label>Vakalatnama Repository Link</label><input type="text" name="opposing_counsel_vakalatnama[]" placeholder="https://..."></div>
+                                </div>
+                            </div>
+                            <button type="button" onclick="appendOpposingCounselBlock()" class="btn-action btn-secondary">➕ Include Secondary Counsel</button>
+                        </div>
+
+                        <!-- Card 4: Flexible Jurisdictional Switch Blocks -->
+                        <div class="panel-card" style="border-color:#fbbf24;">
+                            <h3>🚨 Sub-System Specific Schemas</h3>
+                            
+                            <div id="creation_civil_block">
+                                <h4 style="color:#38bdf8; font-size:12px; margin-bottom:10px;">Civil Suit Parameters Matrix</h4>
+                                <div class="form-group"><label>Nature of Claim</label><input type="text" name="nature_of_claim" placeholder="Property Dispute / Contract"></div>
+                                <div class="form-group"><label>Suit Type</label><input type="text" name="suit_type"></div>
+                                <div class="form-group"><label>Quantum (Valuation Value)</label><input type="number" step="any" name="quantum" value="0"></div>
+                                <div class="form-group"><label>Reliefs Sought (Comma Separated)</label><textarea name="reliefs_sought" rows="2" placeholder="Injunction, Damages"></textarea></div>
+                            </div>
+
+                            <div id="creation_criminal_block" style="display:none;">
+                                <h4 style="color:#e11d48; font-size:12px; margin-bottom:10px;">Criminal Prosecution Parameters Matrix</h4>
+                                <div class="form-row">
+                                    <div class="form-group"><label>FIR Tracking Number</label><input type="text" name="fir_number"></div>
+                                    <div class="form-group"><label>Jurisdiction Police Station</label><input type="text" name="police_station"></div>
+                                </div>
+                                <div class="form-group"><label>Target Scope Penal Codes (u/s)</label><input type="text" name="sections_of_law" placeholder="Ex: Sec 302 IPC"></div>
+                                <div class="form-group"><label>Remarks & Specific Information</label><textarea name="remarks_additional_info" rows="2"></textarea></div>
+                            </div>
+
+                            <h4 style="color:#64748b; font-size:11px; margin-top:15px; border-bottom:1px solid #334155;">Adobe Workspace Operations</h4>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:5px;">
+                                <label style="font-size:11px;"><input type="checkbox" name="adobe_scan" checked> Adobe Scan Node</label>
+                                <label style="font-size:11px;"><input type="checkbox" name="adobe_pdf" checked> PDF Converter</label>
+                                <label style="font-size:11px;"><input type="checkbox" name="adobe_ocr" checked> Automated OCR</label>
+                                <label style="font-size:11px;"><input type="checkbox" name="adobe_bookmark"> Bookmarking</label>
+                                <label style="font-size:11px;"><input type="checkbox" name="adobe_esign"> E-Sign Gateway</label>
+                                <label style="font-size:11px;"><input type="checkbox" name="adobe_translator"> Translator Layer</label>
+                                <label style="font-size:11px;"><input type="checkbox" name="adobe_truetype" checked> True Type System</label>
+                            </div>
+                        </div>
+
+                        <!-- Card 5: Finance & Initial Outlays Ledger -->
+                        <div class="panel-card">
+                            <h3>💰 Financials & Immediate Expenses</h3>
+                            <div class="form-row">
+                                <div class="form-group"><label>Total Agreed Fee</label><input type="number" step="any" name="fees_amount" value="0"></div>
+                                <div class="form-group">
+                                    <label>Invoice Construction</label>
+                                    <select name="invoice_mode">
+                                        <option value="automatic">Automatic Structuring</option>
+                                        <option value="manual">Manual Structure Override</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group"><label>Retainer Initial Fee Paid</label><input type="number" step="any" name="initial_fees_paid" value="0"></div>
+                            <div class="form-group"><label>Fees Remittance Context</label><input type="text" name="financial_particulars" placeholder="Retainer for trial setup"></div>
+                            
+                            <h4 style="color:#64748b; font-size:11px; margin-top:10px; border-bottom:1px solid #334155;">Add Immediate Initial Expense Column</h4>
+                            <div class="form-group"><label>Expense Particulars Context</label><input type="text" name="exp_particulars" placeholder="Affidavit notary"></div>
+                            <div class="form-row">
+                                <div class="form-group"><label>Expense Transaction Date</label><input type="date" name="exp_date"></div>
+                                <div class="form-group"><label>Expense Outlay Amount</label><input type="number" step="any" name="exp_amount" value="0"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:30px; text-align:right;">
+                        <button type="submit" class="btn-action" style="padding:12px 30px; font-size:14px;">⚡ Provision System Case File Block</button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+
+            <!-- ==================== VIEW: ALERTS CONSOLE ==================== -->
+            {% if current_view == 'alerts' %}
+            <div style="max-width: 900px; margin: 0 auto; background: #111827; border: 1px solid #1e293b; padding: 30px; border-radius: 8px;">
+                <h2 style="color:#f8fafc; margin-top:0; margin-bottom:20px;">🔔 Automated Hearing Notification Dispatches</h2>
+                <div style="display:flex; flex-direction:column; gap:15px;">
+                    {% for h in upcoming_hearings %}
+                    <div style="background:#0f172a; border:1px solid #1e293b; padding:20px; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-size:16px; font-weight:bold; color:#f8fafc;">{{ h.client_name }} (Case Ref: {{ h.case_number }})</div>
+                            <div style="font-size:13px; color:#fbbf24; margin-top:4px; font-family:monospace;">Target Calendar Date: {{ h.next_hearing_date }}</div>
+                            <div style="font-size:12px; color:#64748b; margin-top:4px;">Endpoints: {{ h.email }} | {{ h.primary_contact }}</div>
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <button onclick="triggerCloudAlert('{{ h.case_number }}', 'email')" class="btn-action btn-secondary" style="font-size:12px; padding:8px 12px;">📧 Dispatch Email</button>
+                            <button onclick="triggerCloudAlert('{{ h.case_number }}', 'sms')" class="btn-action btn-secondary" style="font-size:12px; padding:8px 12px;">📱 Dispatch SMS</button>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div style="text-align:center; padding:40px; color:#64748b;">Zero calendar alerts detected inside subsequent timeline thresholds.</div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- ==================== VIEW: MANAGE USERS ==================== -->
+            {% if current_view == 'users' and role == 'admin' %}
+            <div style="max-width: 1000px; margin: 0 auto; background: #111827; border: 1px solid #1e293b; padding: 30px; border-radius: 8px;">
+                <h2 style="color:#f8fafc; margin-top:0; margin-bottom:20px;">🔐 Security Cryptopass Ledger Control</h2>
+                
+                <div style="margin-bottom:30px; background:#0f172a; padding:20px; border-radius:6px; border:1px solid #334155;">
+                    <h4 style="color:#fbbf24; margin-top:0; margin-bottom:15px;">Provision System Workspace Operator</h4>
+                    <form method="POST" action="/admin/add_user" style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr auto; gap:10px; align-items:flex-end;">
+                        <div class="form-group"><label>Identity Key</label><input type="text" name="username" required></div>
+                        <div class="form-group"><label>Cryptopass</label><input type="password" name="password" required></div>
+                        <div class="form-group"><label>Access Role</label><select name="role"><option>viewer</option><option>editor</option><option>admin</option></select></div>
+                        <div class="form-group"><label>Initial Status</label><select name="account_status"><option>approved</option><option>pending</option></select></div>
+                        <button type="submit" class="btn-action" style="padding:9px 15px;">Add Operator</button>
+                    </form>
+                </div>
+
+                <table style="width:100%; border-collapse:collapse; text-align:left; font-size:13px;">
+                    <thead>
+                        <tr style="border-bottom:2px solid #334155; color:#94a3b8;">
+                            <th style="padding:10px;">Operator (Username)</th>
+                            <th style="padding:10px;">Assigned Authorization Role</th>
+                            <th style="padding:10px;">Operational Status</th>
+                            <th style="padding:10px; text-align:right;">Access Controls</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in all_users %}
+                        <tr style="border-bottom:1px solid #1e293b;">
+                            <td style="padding:12px; font-weight:bold; color:#f8fafc;">{{ u.username }}</td>
+                            <td style="padding:12px; font-family:monospace; color:#cbd5e1;">{{ u.role }}</td>
+                            <td style="padding:12px;">
+                                <span style="padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold; 
+                                    {% if u.account_status == 'approved' %}background:rgba(52,211,153,0.1); color:#34d399;{% else %}background:rgba(251,191,36,0.1); color:#fbbf24;{% endif %}">
+                                    {{ u.account_status | upper }}
+                                </span>
+                            </td>
+                            <td style="padding:12px; text-align:right; display:flex; gap:8px; justify-content:flex-end;">
+                                {% if u.account_status == 'pending' %}
+                                <form method="POST" action="/approve_user/{{ u.username }}"><button class="btn-action" style="padding:4px 8px; font-size:11px;">Approve</button></form>
+                                {% endif %}
+                                {% if u.username != username %}
+                                <form method="POST" action="/reject_user/{{ u.username }}"><button class="btn-action" style="padding:4px 8px; font-size:11px; background:#ef4444; color:white;">Purge</button></form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </main>
+    </div>
+
+    <script>
+					function appendEditOpposingPartyBlock() {
+					const container = document.getElementById('edit_opposing_parties_container');
+					const wrapper = document.createElement('div');
+					wrapper.className = 'dynamic-wrapper';
+					wrapper.innerHTML = `
+						<div class="form-group"><label>Opposite Party Name *</label><input type="text" name="opposing_party_name[]" required></div>
+						<div class="form-group"><label>Address</label><input type="text" name="opposing_party_address[]"></div>
+						<div class="form-row">
+							<div class="form-group"><label>Mobile</label><input type="text" name="opposing_party_mobile[]"></div>
+							<div class="form-group"><label>Email</label><input type="text" name="opposing_party_email[]"></div>
+						</div>
+					`;
+					container.appendChild(wrapper);
+				}
+
+				function appendEditOpposingCounselBlock() {
+					const container = document.getElementById('edit_opposing_counsels_container');
+					const wrapper = document.createElement('div');
+					wrapper.className = 'dynamic-wrapper';
+					wrapper.innerHTML = `
+						<div class="form-group"><label>Counsel Advocate Name</label><input type="text" name="opposing_counsel_name[]"></div>
+						<div class="form-group"><label>Address</label><input type="text" name="opposing_counsel_address[]"></div>
+						<div class="form-row">
+							<div class="form-group"><label>Mobile</label><input type="text" name="opposing_counsel_mobile[]"></div>
+							<div class="form-group"><label>Email</label><input type="text" name="opposing_counsel_email[]"></div>
+						</div>
+						<div class="form-group"><label>Vakalatnama Repository Link</label><input type="text" name="opposing_counsel_vakalatnama[]" placeholder="https://..."></div>
+					`;
+					container.appendChild(wrapper);
+				}
+        function toggleFormJurisdiction(value) {
+            if (value === 'civil') {
+                document.getElementById('creation_civil_block').style.display = 'block';
+                document.getElementById('creation_criminal_block').style.display = 'none';
+            } else {
+                document.getElementById('creation_civil_block').style.display = 'none';
+                document.getElementById('creation_criminal_block').style.display = 'block';
+            }
+        }
+
+        function appendOpposingPartyBlock() {
+            const container = document.getElementById('opposing_parties_container');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'dynamic-wrapper';
+            wrapper.innerHTML = `
+                <div class="form-group"><label>Opposite Party Name *</label><input type="text" name="opposing_party_name[]" required></div>
+                <div class="form-group"><label>Address</label><input type="text" name="opposing_party_address[]"></div>
+                <div class="form-row">
+                    <div class="form-group"><label>Mobile</label><input type="text" name="opposing_party_mobile[]"></div>
+                    <div class="form-group"><label>Email</label><input type="text" name="opposing_party_email[]"></div>
+                </div>
+            `;
+            container.appendChild(wrapper);
+        }
+
+        function appendOpposingCounselBlock() {
+            const container = document.getElementById('opposing_counsels_container');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'dynamic-wrapper';
+            wrapper.innerHTML = `
+                <div class="form-group"><label>Counsel Advocate Name</label><input type="text" name="opposing_counsel_name[]"></div>
+                <div class="form-group"><label>Address</label><input type="text" name="opposing_counsel_address[]"></div>
+                <div class="form-row">
+                    <div class="form-group"><label>Mobile</label><input type="text" name="opposing_counsel_mobile[]"></div>
+                    <div class="form-group"><label>Email</label><input type="text" name="opposing_counsel_email[]"></div>
+                </div>
+                <div class="form-group"><label>Vakalatnama Repository Link</label><input type="text" name="opposing_counsel_vakalatnama[]"></div>
+            `;
+            container.appendChild(wrapper);
+        }
+
+        async function executeAsynchronousKYC() {
+            const inputField = document.getElementById('kyc_upload_field');
+            const logSpan = document.getElementById('kyc_runtime_logs');
+            
+            if (!inputField.files.length) {
+                alert("Please mount a valid identity document image element.");
+                return;
+            }
+            
+            const payloadData = new FormData();
+            payloadData.append('kyc_image', inputField.files[0]);
+            
+            logSpan.style.color = "#fbbf24";
+            logSpan.innerText = "⏳ Running layout extraction via Gemini AI Flash Client...";
+            
+            try {
+                const response = await fetch('/api/extract-kyc', {
+                    method: 'POST',
+                    body: payloadData
+                });
+                const responseJson = await response.json();
+                
+                if (responseJson.error) {
+                    logSpan.style.color = "#ef4444";
+                    logSpan.innerText = `❌ Integration Failure: ${responseJson.error}`;
+                } else {
+                    logSpan.style.color = "#34d399";
+                    logSpan.innerText = "✅ Telemetry extracted to framework fields.";
+                    
+                    document.getElementById('extracted_name_target').value = responseJson.full_name || '';
+                    document.getElementById('form_kyc_doc_num').value = responseJson.document_number || '';
+                    
+                    const fileIdBox = document.getElementById('case_number_field');
+                    if(!fileIdBox.value) {
+                        fileIdBox.value = Math.floor(100 + Math.random() * 900);
+                    }
+                    
+                    alert(`Extraction Matrix Successful!\nExtracted Identity: ${responseJson.full_name}\nDoc ID: ${responseJson.document_number}`);
+                }
+            } catch (networkError) {
+                logSpan.style.color = "#ef4444";
+                logSpan.innerText = `❌ Network Error: ${networkError.message}`;
+            }
+        }
+
+        async function triggerCloudAlert(caseId, alertType) {
+            try {
+                const response = await fetch('/api/send-alert', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        case_number: caseId,
+                        dispatch_method: alertType,
+                        alert_type: "case_update"
+                    })
+                });
+                
+                const resJson = await response.json();
+                
+                if (resJson.success) {
+                    alert(`✅ ${resJson.message}`);
+                } else {
+                    alert(`❌ Alert Dispatch Failed: ${resJson.message}`);
+                }
+            } catch (e) {
+                alert(`Error communicating with alert endpoint: ${e.message}`);
+            }
+        }
+
+        // ==================== NEW: CLOUD STORAGE UPLOAD LOGIC ====================
+        async function uploadToDrive() {
+            const form = document.getElementById('driveUploadForm');
+            const formData = new FormData(form);
+
+            if (!formData.get('file').name) {
+                alert("Please select a file to upload.");
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/upload-case-file', {
+                    method: 'POST',
+                    body: formData // FormData sets the multipart headers correctly
+                });
+                
+                const resJson = await response.json();
+                
+                if (resJson.success) {
+                    alert(`✅ ${resJson.message}`);
+                    window.location.reload(); // Reloads to instantly show the new file links
+                } else {
+                    alert(`❌ Upload Failed: ${resJson.error}`);
+                }
+            } catch (e) {
+                alert(`Error communicating with server: ${e.message}`);
+            }
+        }
+		
+		
+		
+						async function generateAndEmailInvoice(caseId) {
+					const confirmSend = confirm("Are you sure you want to generate and dispatch the invoice to the client?");
+					if (!confirmSend) return;
+
+					// UI Feedback
+					const btn = event.currentTarget;
+					const originalText = btn.innerHTML;
+					btn.disabled = true;
+					btn.innerHTML = "⏳ Generating & Dispatching...";
+
+					try {
+						const response = await fetch('/api/email-invoice', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ case_number: caseId })
+						});
+						
+						const resJson = await response.json();
+						
+						if (resJson.success) {
+							alert(`🎉 Success! Invoice successfully dispatched to ${resJson.recipient}`);
+						} else {
+							alert(`❌ Invoice Generation Failed: ${resJson.error}`);
+						}
+					} catch (e) {
+						alert(`Error communicating with billing engine: ${e.message}`);
+					} finally {
+						btn.disabled = false;
+						btn.innerHTML = originalText;
+					}
+				}
+    </script>
+</body>
+</html>

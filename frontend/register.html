@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Terminal Node Provisioning</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="auth-container" style="margin-top: 8vh;">
+        <div class="auth-header">
+            <h1>🔐 Access Provisioning</h1>
+            <p>Register New Firm-wide Security Profile Node</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, msg in messages %}
+                    <div class="alert-box alert-{{ category }}">{{ msg }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="/register">
+            <div class="form-group">
+                <label>Identify Username Index Key</label>
+                <input type="text" name="username" required placeholder="e.g., advocate_singh">
+            </div>
+            <div class="form-group">
+                <label>Define Password Access Key</label>
+                <input type="password" name="password" required placeholder="••••••••">
+            </div>
+            <div class="form-group">
+                <label>Assigned Operational Access Privilege Group</label>
+                <select name="role">
+                    <option value="viewer">Viewer (Read-Only Diagnostics)</option>
+                    <option value="editor">Editor (Write, Patch & Modify Records)</option>
+                    <option value="admin">Administrator (Full Write, Edit, Delete Privileges)</option>
+                </select>
+            </div>
+            <button type="submit" class="btn-primary" style="margin-top: 10px;">Provision Terminal Token</button>
+        </form>
+
+        <div class="auth-footer">
+            <span style="color:#64748b;">Verified operational token?</span> <a href="/">Return to Login Gate</a>
+        </div>
+    </div>
+</body>
+</html>
