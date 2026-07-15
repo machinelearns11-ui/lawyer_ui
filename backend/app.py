@@ -26,7 +26,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from flask import Flask, render_template, jsonify, send_file
 from flask_cors import CORS
-
+app = Flask(__name__)
 CORS(app)
 
 
