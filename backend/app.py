@@ -332,7 +332,7 @@ app = Flask(__name__, template_folder='templates')
 CORS(app)
 
 #app.secret_key = "super_secure_vault_secret_key_encryption"
-app.secret_key = "os.getenv("FLASK_SECRET_KEY")
+app.secret_key = os.getenv("FLASK_SECRET_KEY")
 # Initialize Firebase Admin SDK
 cred = credentials.Certificate(os.getcwd(),"serviceAccountKey.json")
 firebase_admin.initialize_app(cred)
