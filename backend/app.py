@@ -26,8 +26,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from flask import Flask, render_template, jsonify, send_file
 from flask_cors import CORS
-app = Flask(__name__)
-CORS(app)
+
 
 
 # --- GOOGLE DRIVE API INITIALIZATION ---
@@ -329,10 +328,13 @@ class KYCDetails(BaseModel):
     document_number: str = Field(description="The primary ID number (e.g., PAN, Passport). Mask the first 4 digits for security with 'X'.")
 
 app = Flask(__name__, template_folder='templates')
-app.secret_key = "super_secure_vault_secret_key_encryption"
+#app = Flask(__name__)
+CORS(app)
 
+#app.secret_key = "super_secure_vault_secret_key_encryption"
+app.secret_key = "os.getenv("FLASK_SECRET_KEY")
 # Initialize Firebase Admin SDK
-cred = credentials.Certificate("serviceAccountKey.json")
+cred = credentials.Certificate(os.getcwd(),"serviceAccountKey.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
