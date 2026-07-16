@@ -382,7 +382,7 @@ def extract_kyc():
 def intercept_unauthenticated_sessions():
     allowed_routes = ['index', 'register', 'serve_css']
     if request.endpoint not in allowed_routes and 'user' not in session:
-        return redirect(url_for('login'))
+        return redirect(url_for('index'))
 
 
 # --- USER AUTHENTICATION CONTROLLERS ---
