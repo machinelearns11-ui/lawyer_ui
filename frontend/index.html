@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>CMS Gateway Authentication</title>
-    <link rel="stylesheet" href="/style.css"> 
+    <link rel="stylesheet" href="style.css"> 
 </head>
 <body>
     <div class="auth-container" style="margin-top: 10vh;">
@@ -27,23 +27,22 @@
         </form>
 
         <div class="auth-footer">
-            <span style="color:#64748b;">New Terminal Allocation?</span> <a href="/register">Register Identity</a>
+            <span style="color:#64748b;">New Terminal Allocation?</span> 
+            <a href="register.html">Register Identity</a>
         </div>
     </div>
 
     <script>
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault(); // Prevents the browser from doing a generic form reload
+            e.preventDefault(); 
             
             const usernameVal = document.getElementById('username').value;
             const passwordVal = document.getElementById('password').value;
             const alertBox = document.getElementById('alert-container');
 
-            // Clear previous alerts
             alertBox.innerHTML = '';
 
             try {
-                // ⚠️ REPLACE THIS URL with your live Render Web Service Backend API URL once deployed!
                 const BACKEND_URL = 'https://lawyer-backend-api.onrender.com/api/login';
 
                 const response = await fetch(BACKEND_URL, {
@@ -60,14 +59,12 @@
                 const data = await response.json();
 
                 if (response.ok && data.success) {
-                    // Store credentials locally to persist the frontend session state
                     localStorage.setItem('user', data.username);
                     localStorage.setItem('role', data.role);
                     
-                    // Redirect to your absolute/relative static page dashboard
-                    window.location.href = '/dashboard.html'; 
+                    // Fixed fallback point layout route mapping directly to the dashboard asset file
+                    window.location.href = 'dashboard.html'; 
                 } else {
-                    // Render custom error messaging matching your template styling
                     alertBox.innerHTML = `<div class="alert-box alert-error" style="color: red; margin-bottom: 15px;">${data.error || 'Invalid credentials.'}</div>`;
                 }
 
