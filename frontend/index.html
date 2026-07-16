@@ -42,33 +42,40 @@
 
             alertBox.innerHTML = '';
 
-            try {
-                const BACKEND_URL = 'https://lawyer-backend-api.onrender.com/api/login';
+           try {
+    const BACKEND_URL = 'https://lawyer-backend-api.onrender.com/api/login';
 
-                const response = await fetch(BACKEND_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        username: usernameVal,
-                        password: passwordVal
-                    })
-                });
+    const response = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            username: usernameVal,
+            password: passwordVal
+        })
+    });
 
-                const data = await response.json();
+    // Check if the server actually returned JSON before parsing
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+        throw new TypeError("Server did not return JSON parsing tokens. Check backend logs for a 404/500 routing error.");
+    }
 
-                if (response.ok && data.success) {
-                    localStorage.setItem('user', data.username);
-                    localStorage.setItem('role', data.role);
-                    
-                    // Fixed fallback point layout route mapping directly to the dashboard asset file
-                    window.location.href = 'dashboard.html'; 
-                } else {
-                    alertBox.innerHTML = `<div class="alert-box alert-error" style="color: red; margin-bottom: 15px;">${data.error || 'Invalid credentials.'}</div>`;
-                }
+    const data = await response.json();
 
-            } catch (err) {
+    if (response.ok && data.success) {
+        localStorage.setItem('user', data.username);
+        localStorage.setItem('role', data.role);
+        window.location.href = 'dashboard.html'; 
+    } else {
+        alertBox.innerHTML = `<div class="alert-box alert-error" style="color: red; margin-bottom: 15px;">${data.error || 'Invalid credentials.'}</div>`;
+    }
+
+} catch (err) {
+    console.error("Connection Error:", err);
+    alertBox.innerHTML = `<div class="alert-box alert-error" style="color: red; margin-bottom: 15px;">Gateway Connection Error: ${err.message}</div>`;
+} catch (err) {
                 console.error("Connection Error:", err);
                 alertBox.innerHTML = `<div class="alert-box alert-error" style="color: red; margin-bottom: 15px;">Could not connect to authentication gateway server.</div>`;
             }
