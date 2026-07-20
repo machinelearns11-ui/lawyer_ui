@@ -27,7 +27,7 @@ from reportlab.lib import colors
 from flask import Flask, render_template, jsonify, send_file
 
 from flask_cors import CORS
-
+from google.oauth2.credentials import Credentials
 
 app = Flask(__name__)
 
@@ -41,8 +41,18 @@ CORS(app, supports_credentials=True)
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 # 2. Authenticate using your existing Firebase JSON key
-drive_creds = service_account.Credentials.from_service_account_file(
-    'serviceAccountKey.json', scopes=SCOPES)
+#drive_creds = service_account.Credentials.from_service_account_file(
+ #   'serviceAccountKey.json', scopes=SCOPES)
+
+drive_creds = Credentials(
+    token=None,  # Automatically generated using refresh_token
+    refresh_token=os.getenv("GOOGLE_REFRESH_TOKEN"),
+    token_uri="https://oauth2.googleapis.com/token",
+    client_id=os.getenv("GOOGLE_CLIENT_ID"),
+    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    scopes=SCOPES
+)
+
 
 # 3. Build the Drive connection
 drive_service = build('drive', 'v3', credentials=drive_creds)
