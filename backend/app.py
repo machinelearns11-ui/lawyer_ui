@@ -31,6 +31,12 @@ from google.oauth2.credentials import Credentials
 
 app = Flask(__name__)
 
+# Force Flask to reload templates when modified
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+# Prevent static files (like HTML/CSS) from being cached aggressively
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+
 CORS(app, supports_credentials=True)
 
 # --- GOOGLE DRIVE API INITIALIZATION ---
