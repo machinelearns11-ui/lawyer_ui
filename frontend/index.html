@@ -2,21 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CMS Gateway Authentication1</title>
+    <title>CMS Gateway Authentication</title>
     <link rel="stylesheet" href="style.css"> 
 </head>
 <body>
     <div class="auth-container" style="margin-top: 10vh;">
         <div class="auth-header">
-            <h1>⚖️ CMS Docket Ledger(TEST)</h1>
+            <h1>⚖️ CMS Docket Ledger</h1>
             <p>Firm-wide Case File Cryptographic Vault</p>
         </div>
          
         <div id="alert-container"></div>
 
-        <!-- Added method="POST" to prevent URL parameter leakage -->
-        <form id="loginForm" method="POST">
+        <form id="loginForm">
             <div class="form-group">
                 <label>System Identity Key (Username)</label>
                 <input type="text" id="username" name="username" required placeholder="User registration tag">
@@ -25,7 +23,7 @@
                 <label>Security Cryptopass (Password)</label>
                 <input type="password" id="password" name="password" required placeholder="••••••••">
             </div>
-            <button type="submit" id="submitBtn" class="btn-primary" style="margin-top: 10px;">Authorize Identity</button>
+            <button type="submit" class="btn-primary" style="margin-top: 10px;">Authorize Identity</button>
         </form>
 
         <div class="auth-footer">
@@ -41,11 +39,8 @@
             const usernameVal = document.getElementById('username').value;
             const passwordVal = document.getElementById('password').value;
             const alertBox = document.getElementById('alert-container');
-            const submitBtn = document.getElementById('submitBtn');
 
             alertBox.innerHTML = '';
-            submitBtn.disabled = true;
-            submitBtn.innerText = 'Connecting to Render Server...';
 
             try {
                 const BACKEND_URL = 'https://lawyer-backend-api.onrender.com/api/login';
@@ -63,7 +58,7 @@
 
                 const contentType = response.headers.get("content-type");
                 if (!contentType || !contentType.includes("application/json")) {
-                    throw new Error("Server returned non-JSON. Backend might be waking up (Cold Start) or crashed.");
+                    throw new Error("Server did not return JSON. Check backend logs.");
                 }
 
                 const data = await response.json();
@@ -79,9 +74,6 @@
             } catch (err) {
                 console.error("Connection Error:", err);
                 alertBox.innerHTML = `<div class="alert-box alert-error" style="color: red; margin-bottom: 15px;">Gateway Connection Error: ${err.message}</div>`;
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerText = 'Authorize Identity';
             }
         });
     </script>
