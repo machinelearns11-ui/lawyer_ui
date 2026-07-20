@@ -2,8 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CMS Gateway Authentication</title>
-    <link rel="stylesheet" href="style.css"> 
+    <!-- Loads CSS via Flask's serve_css route -->
+    <link rel="stylesheet" href="style.css">  
 </head>
 <body>
     <div class="auth-container" style="margin-top: 10vh;">
@@ -11,16 +13,26 @@
             <h1>⚖️ CMS Docket Ledger</h1>
             <p>Firm-wide Case File Cryptographic Vault</p>
         </div>
-         
-        <div id="alert-container"></div>
 
-        <form id="loginForm">
+        <!-- Displays Flask Flash Messages (Invalid credentials, pending approvals, etc.) -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, msg in messages %}
+                    <div class="alert-box alert-{{ category }}" style="color: {% if category == 'error' %}#ef4444{% else %}#10b981{% endif %}; margin-bottom: 15px; font-weight: 600;">
+                        {{ msg }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Direct Form Submit to Flask @app.route('/') -->
+        <form method="POST" action="{{ url_for('login') }}">
             <div class="form-group">
-                <label>System Identity Key (Username)</label>
+                <label for="username">System Identity Key (Username)</label>
                 <input type="text" id="username" name="username" required placeholder="User registration tag">
             </div>
             <div class="form-group">
-                <label>Security Cryptopass (Password)</label>
+                <label for="password">Security Cryptopass (Password)</label>
                 <input type="password" id="password" name="password" required placeholder="••••••••">
             </div>
             <button type="submit" class="btn-primary" style="margin-top: 10px;">Authorize Identity</button>
@@ -28,54 +40,8 @@
 
         <div class="auth-footer">
             <span style="color:#64748b;">New Terminal Allocation?</span> 
-            <a href="register.html">Register Identity</a>
+            <a href="{{ url_for('register') }}">Register Identity</a>
         </div>
     </div>
-
-    <script>
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault(); 
-            
-            const usernameVal = document.getElementById('username').value;
-            const passwordVal = document.getElementById('password').value;
-            const alertBox = document.getElementById('alert-container');
-
-            alertBox.innerHTML = '';
-
-            try {
-                const BACKEND_URL = 'https://lawyer-backend-api.onrender.com/api/login';
-
-                const response = await fetch(BACKEND_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        username: usernameVal,
-                        password: passwordVal
-                    })
-                });
-
-                const contentType = response.headers.get("content-type");
-                if (!contentType || !contentType.includes("application/json")) {
-                    throw new Error("Server did not return JSON. Check backend logs.");
-                }
-
-                const data = await response.json();
-
-                if (response.ok && data.success) {
-                    localStorage.setItem('user', data.username);
-                    localStorage.setItem('role', data.role);
-                    window.location.href = 'dashboard.html'; 
-                } else {
-                    alertBox.innerHTML = `<div class="alert-box alert-error" style="color: red; margin-bottom: 15px;">${data.error || 'Invalid credentials.'}</div>`;
-                }
-
-            } catch (err) {
-                console.error("Connection Error:", err);
-                alertBox.innerHTML = `<div class="alert-box alert-error" style="color: red; margin-bottom: 15px;">Gateway Connection Error: ${err.message}</div>`;
-            }
-        });
-    </script>
 </body>
 </html>
