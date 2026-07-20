@@ -347,7 +347,7 @@ class KYCDetails(BaseModel):
     dob: str = Field(description="Date of Birth extracted from the document.")
     document_number: str = Field(description="The primary ID number (e.g., PAN, Passport). Mask the first 4 digits for security with 'X'.")
 
-app = Flask(__name__, template_folder='templates')
+
 app.secret_key = "super_secure_vault_secret_key_encryption"
 
 # Initialize Firebase Admin SDK
