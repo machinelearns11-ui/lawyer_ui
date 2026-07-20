@@ -404,6 +404,7 @@ def intercept_unauthenticated_sessions():
 
 # --- USER AUTHENTICATION CONTROLLERS ---
 @app.route('/', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     if 'user' in session:
         return redirect(url_for('dashboard'))
