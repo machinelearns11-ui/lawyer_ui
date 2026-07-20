@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CMS Gateway Authentication</title>
-    <!-- Loads CSS via Flask's serve_css route -->
-    <link rel="stylesheet" href="style.css">  
+    <link rel="stylesheet" href="style.css"> 
 </head>
 <body>
     <div class="auth-container" style="margin-top: 10vh;">
@@ -14,7 +13,7 @@
             <p>Firm-wide Case File Cryptographic Vault</p>
         </div>
 
-        <!-- Displays Flask Flash Messages (Invalid credentials, pending approvals, etc.) -->
+        <!-- Displays Flask Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, msg in messages %}
@@ -25,8 +24,8 @@
             {% endif %}
         {% endwith %}
 
-        <!-- Direct Form Submit to Flask @app.route('/') -->
-        <form method="POST" action="{{ url_for('login') }}">
+        <!-- Direct POST to Flask Root Route -->
+        <form method="POST" action="/">
             <div class="form-group">
                 <label for="username">System Identity Key (Username)</label>
                 <input type="text" id="username" name="username" required placeholder="User registration tag">
